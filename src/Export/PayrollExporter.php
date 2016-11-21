@@ -3,6 +3,9 @@ namespace Serval\Export;
 
 /**
  * Export des heures complémentaires vers la paie.
+ *
+ * CRITICAL - used by payroll export
+ * NE PAS MODIFIER sans l'accord du service financier (J.-P. Roche)
  */
 class PayrollExporter
 {
