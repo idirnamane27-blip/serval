@@ -1,0 +1,184 @@
+<?php
+namespace Serval\Import;
+
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use Serval\AcademicYear;
+use Serval\Repository\ImportLogRepository;
+use Serval\Repository\ServiceRepository;
+use Serval\Repository\TeacherRepository;
+
+/**
+ * Import des classeurs de services (un format par époque : 2018, 2019, 2023, 2024+).
+ */
+class ExcelServiceImporter
+{
+    private $pdo;
+    private $teachers;
+    private $services;
+    private $journal;
+    private $derniereAnnee = null;
+
+    public $sansEnseignant = 0;
+
+    public function __construct(\PDO $pdo)
+    {
+        $this->pdo = $pdo;
+        $this->teachers = new TeacherRepository($pdo);
+        $this->services = new ServiceRepository($pdo);
+        $this->journal = new ImportLogRepository($pdo);
+    }
+
+    public function importer($fichier, $anneeForcee = null)
+    {
+        if (!is_readable($fichier)) {
+            throw new \RuntimeException('Fichier illisible : ' . $fichier);
+        }
+        $this->sansEnseignant = 0;
+        $this->derniereAnnee = null;
+
+        // journal des imports
+        $importId = $this->journal->start(basename($fichier), $anneeForcee);
+        $classeur = IOFactory::load($fichier);
+        $source = 'excel:' . basename($fichier);
+
+        $this->pdo->beginTransaction();
+        try {
+            // le format est reconnu au nom de la feuille
+            if ($classeur->getSheetByName('Service') !== null) {
+                $n = $this->importerFormat2018($classeur, $importId, $source, $anneeForcee, $fichier);
+            } else {
+                throw new \RuntimeException('Aucune feuille de services reconnue dans ' . basename($fichier));
+            }
+            $this->pdo->commit();
+        } catch (\Exception $e) {
+            $this->pdo->rollBack();
+            throw $e;
+        }
+
+        $message = $n . ' ligne(s)';
+        if ($this->sansEnseignant > 0) {
+            $message .= ', ' . $this->sansEnseignant . ' sans enseignant';
+        }
+        $this->journal->finish($importId, $n, 'OK', $message, $this->derniereAnnee);
+        return $n;
+    }
+
+    /** Valeur d'une cellule telle qu'affichée (conserve les matricules du type 001245). */
+    private function cellule($feuille, $col, $ligne)
+    {
+        $v = $feuille->getCellByColumnAndRow($col, $ligne)->getFormattedValue();
+        $v = trim((string) $v);
+        return $v === '' ? null : $v;
+    }
+
+    private function nombre($v)
+    {
+        if ($v === null) {
+            return null;
+        }
+        return (float) str_replace(',', '.', $v);
+    }
+
+    private function annee($forcee, $valeur, $classeur, $fichier)
+    {
+        if ($forcee !== null && $forcee !== '') {
+            $annee = AcademicYear::normalize($forcee);
+        } elseif ($valeur !== null) {
+            $annee = AcademicYear::normalize($valeur);
+        } else {
+            $annee = null;
+            $p = $classeur->getSheetByName('Parametres');
+            if ($p !== null) {
+                for ($r = 1; $r <= 20; $r++) {
+                    $lib = $this->cellule($p, 1, $r);
+                    if ($lib !== null && strpos($lib, 'Année') === 0) {
+                        $annee = AcademicYear::normalize($this->cellule($p, 2, $r));
+                        break;
+                    }
+                }
+            }
+            if ($annee === null && preg_match('/(\d{4})[-_](\d{4})/', basename($fichier), $m)) {
+                $annee = AcademicYear::normalize($m[1] . '-' . $m[2]);
+            }
+            if ($annee === null) {
+                throw new \RuntimeException('Annee universitaire introuvable dans ' . basename($fichier));
+            }
+        }
+        return $annee;
+    }
+
+    private function enregistrer($l, $importId, $source)
+    {
+        $enseignant = null;
+        if ($l['matricule'] !== null) {
+            $enseignant = $this->teachers->find($l['matricule']);
+        }
+        if ($enseignant === null && $l['nom'] !== null) {
+            // anciens classeurs sans matricule : on retrouve l'enseignant par son nom
+            $enseignant = $this->teachers->findByName($l['nom']);
+        }
+        if ($enseignant === null) {
+            $this->sansEnseignant++;
+        }
+        $this->services->insert(array(
+            'annee'              => $l['annee'],
+            'teacher_id'         => $enseignant ? $enseignant['id'] : null,
+            'teacher_nom_source' => $l['nom'],
+            'ue'                 => $l['ue'],
+            'libelle'            => $l['libelle'],
+            'type'               => $l['type'],
+            'heures'             => $l['heures'],
+            'groupes'            => $l['groupes'],
+            'part'               => $l['part'],
+            'etd_impose'         => $l['etd_impose'],
+            'commentaire'        => $l['commentaire'],
+            'source'             => $source,
+            'import_id'          => $importId,
+        ));
+    }
+
+    /** Une valeur HETD saisie en dur (pas une formule) est une valeur imposée. */
+    private function etdSaisi($feuille, $col, $ligne)
+    {
+        $c = $feuille->getCellByColumnAndRow($col, $ligne);
+        if ($c->getDataType() == 'f') {
+            return null;
+        }
+        return $this->nombre($this->cellule($feuille, $col, $ligne));
+    }
+
+    // Classeur 2018 : feuille "Service", pas de matricule, part en %
+    private function importerFormat2018($classeur, $importId, $source, $anneeForcee, $fichier)
+    {
+        $f = $classeur->getSheetByName('Service');
+        $annee = $this->annee($anneeForcee, null, $classeur, $fichier);
+        $n = 0;
+        $derniere = $f->getHighestRow();
+        for ($r = 4; $r <= $derniere; $r++) {
+            $nom = $this->cellule($f, 1, $r);
+            if ($nom === null) {
+                continue;
+            }
+            if (strtoupper($nom) == 'TOTAL') {
+                break;
+            }
+            $this->enregistrer(array(
+                'annee'       => $annee,
+                'matricule'   => null,
+                'nom'         => $nom,
+                'ue'          => $this->cellule($f, 2, $r),
+                'libelle'     => $this->cellule($f, 3, $r),
+                'type'        => $this->cellule($f, 4, $r),
+                'heures'      => $this->nombre($this->cellule($f, 6, $r)),
+                'groupes'     => 1, // cf. classeur
+                'part'        => $this->nombre($this->cellule($f, 7, $r)),
+                'etd_impose'  => $this->etdSaisi($f, 8, $r),
+                'commentaire' => $this->cellule($f, 9, $r),
+            ), $importId, $source);
+            $n++;
+        }
+        return $n;
+    }
+
+}
