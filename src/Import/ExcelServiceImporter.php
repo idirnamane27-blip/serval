@@ -7,6 +7,7 @@ use Serval\AcademicYear;
 use Serval\Repository\ImportLogRepository;
 use Serval\Repository\ServiceRepository;
 use Serval\Repository\TeacherRepository;
+use Serval\Repository\YearRepository;
 
 /**
  * Import des classeurs de services (un format par époque : 2018, 2019, 2023, 2024+).
@@ -17,9 +18,12 @@ class ExcelServiceImporter
     private $teachers;
     private $services;
     private $journal;
+    private $annees;
+    private $anneesVerifiees = array();
     private $derniereAnnee = null;
 
     public $sansEnseignant = 0;
+    public $forcerArchive = false;
 
     public function __construct(\PDO $pdo)
     {
@@ -27,6 +31,7 @@ class ExcelServiceImporter
         $this->teachers = new TeacherRepository($pdo);
         $this->services = new ServiceRepository($pdo);
         $this->journal = new ImportLogRepository($pdo);
+        $this->annees = new YearRepository($pdo);
     }
 
     public function importer($fichier, $anneeForcee = null)
@@ -35,6 +40,7 @@ class ExcelServiceImporter
             throw new \RuntimeException('Fichier illisible : ' . $fichier);
         }
         $this->sansEnseignant = 0;
+        $this->anneesVerifiees = array();
         $this->derniereAnnee = null;
 
         // journal des imports
@@ -47,6 +53,8 @@ class ExcelServiceImporter
             // le format est reconnu au nom de la feuille
             if ($classeur->getSheetByName('Service') !== null) {
                 $n = $this->importerFormat2018($classeur, $importId, $source, $anneeForcee, $fichier);
+            } elseif ($classeur->getSheetByName('SERVICE') !== null) {
+                $n = $this->importerFormat2019($classeur, $importId, $source, $anneeForcee, $fichier);
             } else {
                 throw new \RuntimeException('Aucune feuille de services reconnue dans ' . basename($fichier));
             }
@@ -105,7 +113,23 @@ class ExcelServiceImporter
                 throw new \RuntimeException('Annee universitaire introuvable dans ' . basename($fichier));
             }
         }
+        $this->verifierAnnee($annee);
         return $annee;
+    }
+
+    private function verifierAnnee($annee)
+    {
+        if (isset($this->anneesVerifiees[$annee])) {
+            return;
+        }
+        $info = $this->annees->find($annee);
+        if ($info === null) {
+            $this->annees->create($annee);
+        } elseif ($info['cloturee'] === '1' && !$this->forcerArchive) {
+            throw new \RuntimeException('Annee ' . $annee . " cloturee : import refuse (option --archive pour une reprise d'archives)");
+        }
+        $this->anneesVerifiees[$annee] = true;
+        $this->derniereAnnee = $annee;
     }
 
     private function enregistrer($l, $importId, $source)
@@ -175,6 +199,38 @@ class ExcelServiceImporter
                 'part'        => $this->nombre($this->cellule($f, 7, $r)),
                 'etd_impose'  => $this->etdSaisi($f, 8, $r),
                 'commentaire' => $this->cellule($f, 9, $r),
+            ), $importId, $source);
+            $n++;
+        }
+        return $n;
+    }
+
+    // Classeur 2019 : feuille "SERVICE", code enseignant (parfois absent), heures et groupes séparés
+    private function importerFormat2019($classeur, $importId, $source, $anneeForcee, $fichier)
+    {
+        $f = $classeur->getSheetByName('SERVICE');
+        $n = 0;
+        $derniere = $f->getHighestRow();
+        for ($r = 2; $r <= $derniere; $r++) {
+            $nom = $this->cellule($f, 3, $r);
+            if ($nom === null) {
+                continue;
+            }
+            if (strtoupper($nom) == 'TOTAL') {
+                break;
+            }
+            $this->enregistrer(array(
+                'annee'       => $this->annee($anneeForcee, $this->cellule($f, 1, $r), $classeur, $fichier),
+                'matricule'   => $this->cellule($f, 2, $r),
+                'nom'         => $nom,
+                'ue'          => $this->cellule($f, 4, $r),
+                'libelle'     => null,
+                'type'        => $this->cellule($f, 5, $r),
+                'heures'      => $this->nombre($this->cellule($f, 6, $r)),
+                'groupes'     => $this->nombre($this->cellule($f, 7, $r)),
+                'part'        => $this->nombre($this->cellule($f, 8, $r)),
+                'etd_impose'  => $this->etdSaisi($f, 9, $r),
+                'commentaire' => $this->cellule($f, 10, $r),
             ), $importId, $source);
             $n++;
         }
