@@ -1,0 +1,13 @@
+{
+    "name": "dinfo/serval",
+    "description": "SERVAL - gestion des services d'enseignement du departement Informatique",
+    "require": {
+        "php": ">=7.1",
+        "phpoffice/phpspreadsheet": "^1.9"
+    },
+    "autoload": {
+        "psr-4": {
+            "Serval\\": "src/"
+        }
+    }
+}
