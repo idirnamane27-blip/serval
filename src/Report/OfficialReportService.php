@@ -121,4 +121,54 @@ class OfficialReportService
     {
         return number_format((float) $v, 2, ',', '');
     }
+
+    /** Date d'arrêté par défaut de l'export paie : dernier jour du mois précédent. */
+    public function dateArreteParDefaut()
+    {
+        return date('Y-m-d', strtotime('last day of previous month'));
+    }
+
+    /**
+     * Heures à payer aux vacataires : lignes saisies jusqu'à la date d'arrêté.
+     */
+    public function lignesPaie($annee, $arrete)
+    {
+        $annee = AcademicYear::normalize($annee);
+        $out = array();
+        foreach ($this->teachers->allByName() as $t) {
+            if ($t['statut'] != 'VAC') {
+                continue;
+            }
+            $lignes = array();
+            foreach ($this->services->findByTeacherAndYear($t['id'], $annee) as $l) {
+                if (substr($l['created_at'], 0, 10) <= $arrete) {
+                    $lignes[] = $l;
+                }
+            }
+            $calc = new ServiceCalculator();
+            $hetd = round($calc->total($lignes) + $this->adjustments->totalFor($t['id'], $annee), 2);
+            if ($hetd == 0) {
+                continue;
+            }
+            $out[] = array('teacher_id' => $t['id'], 'nom' => $t['nom'], 'prenom' => $t['prenom'], 'statut' => $t['statut'], 'annee' => $annee, 'hetd' => $hetd);
+        }
+        return $out;
+    }
+    /**
+     * Export pour l'outil de paie des vacataires (DRH).
+     * Format de la convention d'échange v2 : voir docs/partenaires/format_export_paie.md
+     */
+    public function exportPaie($annee, $arrete, $fh)
+    {
+        fwrite($fh, "MATRICULE;NOM;PRENOM;STATUT;ANNEE;HETD;DATE_ARRETE\r\n");
+        $n = 0;
+        foreach ($this->lignesPaie($annee, $arrete) as $l) {
+            fwrite($fh, implode(';', array(
+                $l['teacher_id'], $l['nom'], $l['prenom'], $l['statut'], $l['annee'],
+                number_format($l['hetd'], 2, ',', ''), date('d/m/Y', strtotime($arrete)),
+            )) . "\r\n");
+            $n++;
+        }
+        return $n;
+    }
 }
