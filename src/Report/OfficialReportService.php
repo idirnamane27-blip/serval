@@ -2,7 +2,7 @@
 namespace Serval\Report;
 
 use Serval\AcademicYear;
-use Serval\Calculator\ServiceCalculator;
+use Serval\Calculator\LegacyServiceCalculator;
 use Serval\Repository\AdjustmentRepository;
 use Serval\Repository\DechargeRepository;
 use Serval\Repository\ServiceRepository;
@@ -61,7 +61,7 @@ class OfficialReportService
         if (count($lignes) == 0 && $ajust == 0) {
             return null;
         }
-        $calc = new ServiceCalculator();
+        $calc = new LegacyServiceCalculator();
         $total = $calc->total($lignes);
         $decharges = $this->decharges->totalFor($t['id'], $annee);
         $officiel = round($total + $ajust, 2);
@@ -104,7 +104,7 @@ class OfficialReportService
     public function detailCsv($annee)
     {
         $annee = AcademicYear::normalize($annee);
-        $calc = new ServiceCalculator();
+        $calc = new LegacyServiceCalculator();
         $csv = "annee;matricule;nom;prenom;ue;type;heures;groupes;part;etd_impose;hetd\n";
         foreach ($this->teachers->allByName() as $t) {
             foreach ($this->services->findByTeacherAndYear($t['id'], $annee) as $l) {
@@ -145,7 +145,7 @@ class OfficialReportService
                     $lignes[] = $l;
                 }
             }
-            $calc = new ServiceCalculator();
+            $calc = new LegacyServiceCalculator();
             $hetd = round($calc->total($lignes) + $this->adjustments->totalFor($t['id'], $annee), 2);
             if ($hetd == 0) {
                 continue;

@@ -1,72 +1,59 @@
 <?php
+declare(strict_types=1);
+
 namespace Serval\Calculator;
 
 /**
- * Calcul des heures équivalent TD d'un service.
+ * Calcul des heures équivalent TD (HETD).
+ *
+ * Moteur de calcul officiel depuis la refonte de 2021 : remplace LegacyServiceCalculator.
  */
-class ServiceCalculator
+final class ServiceCalculator
 {
-    var $aRecalculer = 0;
+    public const COEFFICIENTS = [
+        'CM'     => 1.5,
+        'TD'     => 1.0,
+        'TP'     => 0.67,
+        'PROJET' => 0.5,
+    ];
 
-    /**
-     * HETD d'une ligne de service (non arrondi).
-     */
-    function calculerLigne($l)
+    private array $coefficients;
+
+    public function __construct(?array $coefficients = null)
     {
-        $type = strtoupper(trim($l['type']));
-        if ($type == '') {
-            $type = 'TD';
-        }
-        if ($type[0] == '#') {
-            return 0;
-        }
-        if ($l['etd_impose'] !== null && $l['etd_impose'] !== '') {
-            return (float) $l['etd_impose'];
-        }
-        $h = $l['heures'];
-        if ($h == 999) {
-            $this->aRecalculer++;
-            return 0;
-        }
-        $g = $l['groupes'];
-        if ($g == 0) {
-            $g = 1;
-        }
-        $p = $l['part'];
-        if ($p == 0) {
-            $p = 100;
-        }
-        $p = (float) str_replace(',', '.', $p);
-        if ($p > 1) {
-            $p = $p / 100;
-        }
-        switch ($type) {
-            case 'CM':
-            case 'COURS':
-                $coef = 1.5;
-                break;
-            case 'TP':
-            case 'LAB':
-                $coef = 2 / 3;
-                break;
-            case 'PRJ':
-            case 'PROJECT':
-            case 'PROJET':
-                $coef = 0.5;
-                break;
-            case 'TD':
-            default:
-                $coef = 1;
-        }
-        return $h * $g * $coef * $p;
+        $this->coefficients = $coefficients ?? self::COEFFICIENTS;
     }
 
-    function total($lignes)
+    /**
+     * HETD d'une ligne de service, arrondi au centième.
+     */
+    public function etdLigne(array $ligne): float
     {
-        $total = 0;
-        foreach ($lignes as $l) {
-            $total += $this->calculerLigne($l);
+        if (isset($ligne['etd_impose']) && $ligne['etd_impose'] !== '') {
+            return round((float) $ligne['etd_impose'], 2);
         }
-        return $total;
+        $type = strtoupper(trim((string) ($ligne['type'] ?? '')));
+        if (!isset($this->coefficients[$type])) {
+            return 0.0;
+        }
+        $heures = (float) ($ligne['heures'] ?? 0);
+        if ($heures < 0) {
+            return 0.0;
+        }
+        $groupes = max(1, (int) ($ligne['groupes'] ?? 1));
+        $part = (float) ($ligne['part'] ?? 0);
+        if ($part > 1) {
+            $part = $part / 100;
+        }
+        return round($heures * $groupes * $this->coefficients[$type] * $part, 2);
+    }
+
+    public function total(array $lignes): float
+    {
+        $total = 0.0;
+        foreach ($lignes as $ligne) {
+            $total += $this->etdLigne($ligne);
+        }
+        return round($total, 2);
     }
 }
