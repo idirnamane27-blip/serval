@@ -1,0 +1,20 @@
+De : Killian Morvan (stagiaire M2)
+À : Jean-Pierre Roche
+Date : 25 juin 2021
+Objet : SERVAL - passation de fin de stage
+
+Bonjour Jean-Pierre,
+
+Voici où j'en suis à la fin du stage :
+
+- le nouveau calculateur (ServiceCalculator) est en place avec ses tests, l'interface web l'utilise ;
+- le cache des totaux est en service, l'affichage est nettement plus rapide ;
+- j'ai repris les archives 2018-2019 et 2019-2020 pour que les collègues puissent les consulter.
+  Le classeur 2018 n'a pas de matricule, j'ai retrouvé les enseignants par leur nom ; il reste
+  quelques lignes que l'import n'a pas su rattacher ;
+- le README et la doc d'architecture décrivent la cible ;
+- je n'ai pas eu le temps de finir la migration des exports. J'ai des petits écarts entre l'ancien
+  et le nouveau calcul que je n'ai pas réussi à expliquer avant de partir.
+
+Bon courage pour la suite,
+Killian

@@ -1,0 +1,30 @@
+INSTALLATION DE SERVAL
+======================
+(procédure rédigée pour le serveur dinfo-app0, Debian 10 - mars 2021)
+
+1. Paquets
+
+   apt-get install php7.3-cli php7.3-sqlite3 php7.3-xml php7.3-zip php7.3-mbstring php7.3-gd composer
+
+2. Sources
+
+   cd /srv && git clone git@forge.univ-rochebrune.example:dinfo/serval.git
+   cd serval && composer install --no-dev
+
+3. Base de données
+
+   php bin/init_db.php
+   (crée data/serval.sqlite à partir de db/schema.sql et des migrations)
+
+4. Serveur web
+
+   Apache : DocumentRoot /srv/serval/public (voir le vhost du serveur).
+   En développement : php -S localhost:8080 -t public
+
+5. Tâches planifiées
+
+   Voir docs/exploitation/crontab.txt
+
+6. Fuseau horaire
+
+   Rien à faire : le serveur est à l'heure de Paris.
