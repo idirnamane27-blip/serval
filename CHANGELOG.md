@@ -1,5 +1,9 @@
 # Journal des versions
 
+## 2.1 (2022)
+- Décharges de service.
+- Suppression de LegacyServiceCalculator (prévue).
+
 ## 2.0 (2021) — refonte
 - Nouveau moteur de calcul `ServiceCalculator`, cache des totaux, tests PHPUnit, Composer, PHP 7.4.
 - Reprise des archives 2018-2019 et 2019-2020 dans la base pour l'interface web.
