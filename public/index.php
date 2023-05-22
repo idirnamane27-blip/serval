@@ -70,6 +70,12 @@ switch ($page) {
         }
         break;
 
+    case 'cloturer':
+        // bouton "Clôturer l'année"
+        $n = $report->snapshotAnnee($annee, $_SERVER['REMOTE_USER']);
+        echo '<p>Année clôturée : ' . $n . ' états figés.</p>';
+        break;
+
     default:
         $annees = $yearRepo->all();
         include __DIR__ . '/../templates/accueil.php';

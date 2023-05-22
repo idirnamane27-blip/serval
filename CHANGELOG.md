@@ -1,5 +1,10 @@
 # Journal des versions
 
+## 2.2 (2023)
+- Format de classeur 2023-2024 : feuille `Interventions`.
+- Bouton « Clôturer l'année » dans l'interface web.
+- Migration sur le serveur dinfo-app1 (août).
+
 ## 2.1 (2022)
 - Décharges de service.
 - Suppression de LegacyServiceCalculator (prévue).

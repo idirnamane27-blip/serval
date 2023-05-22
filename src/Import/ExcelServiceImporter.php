@@ -55,6 +55,8 @@ class ExcelServiceImporter
                 $n = $this->importerFormat2018($classeur, $importId, $source, $anneeForcee, $fichier);
             } elseif ($classeur->getSheetByName('SERVICE') !== null) {
                 $n = $this->importerFormat2019($classeur, $importId, $source, $anneeForcee, $fichier);
+            } elseif ($classeur->getSheetByName('Interventions') !== null) {
+                $n = $this->importerFormat2023($classeur, $importId, $source, $anneeForcee, $fichier);
             } else {
                 throw new \RuntimeException('Aucune feuille de services reconnue dans ' . basename($fichier));
             }
@@ -237,4 +239,51 @@ class ExcelServiceImporter
         return $n;
     }
 
+    // Classeur 2023 : feuille "Interventions", titre + ligne d'en-tête à repérer
+    private function importerFormat2023($classeur, $importId, $source, $anneeForcee, $fichier)
+    {
+        $f = $classeur->getSheetByName('Interventions');
+        $valeurAnnee = null;
+        if (preg_match('#(\d{2,4})\s*[-/]\s*(\d{2,4})\s*$#', (string) $this->cellule($f, 1, 1), $m)) {
+            $valeurAnnee = $m[1] . '-' . $m[2];
+        }
+        $annee = $this->annee($anneeForcee, $valeurAnnee, $classeur, $fichier);
+        $entete = null;
+        for ($r = 1; $r <= 15; $r++) {
+            if ($this->cellule($f, 1, $r) == 'Matricule') {
+                $entete = $r;
+                break;
+            }
+        }
+        if ($entete === null) {
+            throw new \RuntimeException("Ligne d'en-tete introuvable (feuille Interventions)");
+        }
+        $n = 0;
+        $derniere = $f->getHighestRow();
+        for ($r = $entete + 1; $r <= $derniere; $r++) {
+            $matricule = $this->cellule($f, 1, $r);
+            $nom = $this->cellule($f, 2, $r);
+            if ($matricule === null && $nom === null) {
+                continue;
+            }
+            if ($nom == 'TOTAL') {
+                break;
+            }
+            $this->enregistrer(array(
+                'annee'       => $annee,
+                'matricule'   => $matricule,
+                'nom'         => $nom,
+                'ue'          => $this->cellule($f, 4, $r),
+                'libelle'     => $this->cellule($f, 5, $r),
+                'type'        => $this->cellule($f, 6, $r),
+                'heures'      => $this->nombre($this->cellule($f, 7, $r)),
+                'groupes'     => $this->nombre($this->cellule($f, 8, $r)),
+                'part'        => $this->nombre($this->cellule($f, 9, $r)),
+                'etd_impose'  => $this->etdSaisi($f, 10, $r),
+                'commentaire' => $this->cellule($f, 11, $r),
+            ), $importId, $source);
+            $n++;
+        }
+        return $n;
+    }
 }

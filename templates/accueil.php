@@ -8,6 +8,9 @@
         <td>
             <a href="index.php?page=services&amp;annee=<?php echo $a['code']; ?>">services</a> -
             <a href="index.php?page=ue&amp;annee=<?php echo $a['code']; ?>">par UE</a>
+<?php if ($a['cloturee'] != 1) { ?>
+            - <a href="index.php?page=cloturer&amp;annee=<?php echo $a['code']; ?>">clôturer l'année</a>
+<?php } ?>
         </td>
     </tr>
 <?php } ?>

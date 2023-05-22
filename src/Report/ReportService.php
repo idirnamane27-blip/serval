@@ -84,4 +84,31 @@ final class ReportService
         }
         return ['lignes' => $lignes, 'total' => $this->calculator->total($lignes)];
     }
+
+    /**
+     * Clôture d'une année depuis l'interface web (bouton "Clôturer l'année").
+     */
+    public function snapshotAnnee(string $annee, string $utilisateur): int
+    {
+        $annee = AcademicYear::normalize($annee);
+        $snapshots = new SnapshotRepository($this->pdo);
+        $adjustments = new AdjustmentRepository($this->pdo);
+        $decharges = new DechargeRepository($this->pdo);
+        $n = 0;
+        foreach ($this->totalsForYear($annee, false) as $ligne) {
+            $t = $ligne['teacher'];
+            $ajust = $adjustments->totalFor($t['id'], $annee);
+            $dech = $decharges->totalFor($t['id'], $annee);
+            $officiel = round($ligne['total'] + $ajust, 2);
+            $snapshots->insert([
+                'annee' => $annee, 'teacher_id' => $t['id'], 'nom' => $t['nom'], 'prenom' => $t['prenom'],
+                'statut' => $t['statut'], 'service_du' => $t['service_du'], 'decharges' => $dech,
+                'total_etd' => $ligne['total'], 'ajustements' => $ajust, 'total_officiel' => $officiel,
+                'solde' => round($officiel - ((float) $t['service_du'] - $dech), 2), 'observations' => '',
+            ]);
+            $n++;
+        }
+        (new YearRepository($this->pdo))->cloturer($annee, date('Y-m-d'), 'web:' . $utilisateur, "Clôture depuis l'interface web");
+        return $n;
+    }
 }
