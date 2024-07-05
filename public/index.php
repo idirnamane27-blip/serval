@@ -70,11 +70,13 @@ switch ($page) {
         }
         break;
 
+    /*
     case 'cloturer':
-        // bouton "Clôturer l'année"
+        // Bouton "Clôturer l'année" - DESACTIVE le 04/07/2024 (cf. docs/historique/PV_2024-07-04.md)
         $n = $report->snapshotAnnee($annee, $_SERVER['REMOTE_USER']);
         echo '<p>Année clôturée : ' . $n . ' états figés.</p>';
         break;
+    */
 
     default:
         $annees = $yearRepo->all();

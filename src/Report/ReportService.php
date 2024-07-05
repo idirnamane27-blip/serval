@@ -87,6 +87,8 @@ final class ReportService
 
     /**
      * Clôture d'une année depuis l'interface web (bouton "Clôturer l'année").
+     *
+     * @deprecated bouton désactivé depuis le 04/07/2024 - utiliser bin/cloturer_annee.php
      */
     public function snapshotAnnee(string $annee, string $utilisateur): int
     {
