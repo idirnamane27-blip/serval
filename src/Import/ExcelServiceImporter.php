@@ -57,6 +57,8 @@ class ExcelServiceImporter
                 $n = $this->importerFormat2019($classeur, $importId, $source, $anneeForcee, $fichier);
             } elseif ($classeur->getSheetByName('Interventions') !== null) {
                 $n = $this->importerFormat2023($classeur, $importId, $source, $anneeForcee, $fichier);
+            } elseif ($classeur->getSheetByName('Services') !== null) {
+                $n = $this->importerFormatTableau($classeur, $importId, $source, $anneeForcee, $fichier);
             } else {
                 throw new \RuntimeException('Aucune feuille de services reconnue dans ' . basename($fichier));
             }
@@ -281,6 +283,49 @@ class ExcelServiceImporter
                 'part'        => $this->nombre($this->cellule($f, 9, $r)),
                 'etd_impose'  => $this->etdSaisi($f, 10, $r),
                 'commentaire' => $this->cellule($f, 11, $r),
+            ), $importId, $source);
+            $n++;
+        }
+        return $n;
+    }
+
+    // Classeurs 2024 et suivants : feuille "Services", colonnes nommées en ligne 1
+    private function importerFormatTableau($classeur, $importId, $source, $anneeForcee, $fichier)
+    {
+        $f = $classeur->getSheetByName('Services');
+        $cols = array();
+        $nbCols = Coordinate::columnIndexFromString($f->getHighestColumn());
+        for ($c = 1; $c <= $nbCols; $c++) {
+            $titre = $this->cellule($f, $c, 1);
+            if ($titre !== null) {
+                $cols[strtolower($titre)] = $c;
+            }
+        }
+        foreach (array('annee', 'matricule', 'nom', 'prenom', 'ue', 'type', 'heures', 'groupes', 'part') as $obligatoire) {
+            if (!isset($cols[$obligatoire])) {
+                throw new \RuntimeException('Colonne manquante : ' . $obligatoire);
+            }
+        }
+        $n = 0;
+        $derniere = $f->getHighestRow();
+        for ($r = 2; $r <= $derniere; $r++) {
+            $matricule = $this->cellule($f, $cols['matricule'], $r);
+            $nom = $this->cellule($f, $cols['nom'], $r);
+            if ($matricule === null && $nom === null) {
+                continue;
+            }
+            $this->enregistrer(array(
+                'annee'       => $this->annee($anneeForcee, $this->cellule($f, $cols['annee'], $r), $classeur, $fichier),
+                'matricule'   => $matricule,
+                'nom'         => trim($nom . ' ' . $this->cellule($f, $cols['prenom'], $r)),
+                'ue'          => $this->cellule($f, $cols['ue'], $r),
+                'libelle'     => null,
+                'type'        => $this->cellule($f, $cols['type'], $r),
+                'heures'      => $this->nombre($this->cellule($f, $cols['heures'], $r)),
+                'groupes'     => $this->nombre($this->cellule($f, $cols['groupes'], $r)),
+                'part'        => $this->nombre($this->cellule($f, $cols['part'], $r)),
+                'etd_impose'  => isset($cols['etd_impose']) ? $this->nombre($this->cellule($f, $cols['etd_impose'], $r)) : null,
+                'commentaire' => isset($cols['commentaire']) ? $this->cellule($f, $cols['commentaire'], $r) : null,
             ), $importId, $source);
             $n++;
         }
