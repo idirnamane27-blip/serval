@@ -1,0 +1,17 @@
+matricule;nom;prenom;statut;service_du;email
+E001;BERNARD;Claire;EC;192;claire.bernard@univ-rochebrune.example
+E002;PETIT;Thomas;EC;192;thomas.petit@univ-rochebrune.example
+E003;MARTIN;Alice;EC;192;alice.martin@univ-rochebrune.example
+E004;DUBOIS;Marc;PRAG;384;marc.dubois@univ-rochebrune.example
+E005;MOREAU;Sophie;EC;192;sophie.moreau@univ-rochebrune.example
+E006;LAURENT;Nicolas;ATER;192;nicolas.laurent@univ-rochebrune.example
+E007;MARTIN;Jean;EC;192;jean.martin@univ-rochebrune.example
+E008;MARTIN;Jean;PRAG;384;jean.martin@univ-rochebrune.example
+E009;GARCIA;Inès;EC;192;ines.garcia@univ-rochebrune.example
+E010;ROUX;Antoine;ATER;96;antoine.roux@univ-rochebrune.example
+E011;LEFÈVRE;Élodie;EC;192;elodie.lefevre@univ-rochebrune.example
+E012;NGUYEN;Minh;EC;192;minh.nguyen@univ-rochebrune.example
+E013;LEBŒUF;Maëlle;VAC;0;maelle.lebuf@univ-rochebrune.example
+001245;FONTAINE;Hervé;VAC;0;herve.fontaine@univ-rochebrune.example
+1245;BENALI;Sofiane;VAC;0;sofiane.benali@univ-rochebrune.example
+000872;N'DIAYE;Awa;VAC;0;awa.ndiaye@univ-rochebrune.example

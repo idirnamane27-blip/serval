@@ -301,6 +301,9 @@ class ExcelServiceImporter
                 $cols[strtolower($titre)] = $c;
             }
         }
+        if (isset($cols['code_ue'])) {
+            $cols['ue'] = $cols['code_ue'];
+        }
         foreach (array('annee', 'matricule', 'nom', 'prenom', 'ue', 'type', 'heures', 'groupes', 'part') as $obligatoire) {
             if (!isset($cols[$obligatoire])) {
                 throw new \RuntimeException('Colonne manquante : ' . $obligatoire);
