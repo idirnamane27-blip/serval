@@ -1,0 +1,17 @@
+ETATS OFFICIELS ARCHIVES
+========================
+
+Copies des fichiers transmis à la direction et à la DRH. Ces fichiers font foi.
+
+etat_services_2018-2019.csv ... etat_services_2023-2024.csv
+    Etats de service signés des années clôturées.
+
+etat_services_2024-2025_provisoire.csv
+detail_lignes_2024-2025_provisoire.csv
+    Etat provisoire 2024-2025 transmis à la direction le 03/10/2025 (année non encore clôturée),
+    et détail ligne à ligne ayant servi aux fiches individuelles.
+
+paie_vacataires_2024-2025_arrete_2025-06-30.csv
+    Dernier fichier de paie de l'année 2024-2025, accepté par l'outil de la DRH (dépôt du 1er juillet 2025).
+
+Format des états : séparateur ";", virgule décimale, UTF-8.
