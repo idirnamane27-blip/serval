@@ -1,5 +1,10 @@
 # Journal des versions
 
+## 2.4 (2025)
+- Format de classeur 2025-2026 (dates de début et de fin, coefficients lus dans l'onglet Parametres).
+- Import des fichiers de compléments (CSV) des autres composantes.
+- Export paie : simplification du code (fputcsv).
+
 ## 2.3 (2024)
 - Format de classeur 2024-2025 : feuille `Services`, part exprimée en fraction (0,5) et non plus en pourcentage.
 - Interface web : désactivation du bouton « Clôturer l'année » (décision du conseil de département du 04/07/2024).

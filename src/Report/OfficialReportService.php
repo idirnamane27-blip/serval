@@ -154,19 +154,17 @@ class OfficialReportService
         }
         return $out;
     }
+
     /**
      * Export pour l'outil de paie des vacataires (DRH).
-     * Format de la convention d'échange v2 : voir docs/partenaires/format_export_paie.md
+     * 2025-10 : simplification, on utilise fputcsv() au lieu de construire les lignes à la main.
      */
     public function exportPaie($annee, $arrete, $fh)
     {
-        fwrite($fh, "MATRICULE;NOM;PRENOM;STATUT;ANNEE;HETD;DATE_ARRETE\r\n");
+        fputcsv($fh, array('matricule', 'nom', 'prenom', 'statut', 'annee', 'hetd', 'date_arrete'));
         $n = 0;
         foreach ($this->lignesPaie($annee, $arrete) as $l) {
-            fwrite($fh, implode(';', array(
-                $l['teacher_id'], $l['nom'], $l['prenom'], $l['statut'], $l['annee'],
-                number_format($l['hetd'], 2, ',', ''), date('d/m/Y', strtotime($arrete)),
-            )) . "\r\n");
+            fputcsv($fh, array($l['teacher_id'], $l['nom'], $l['prenom'], $l['statut'], $l['annee'], $l['hetd'], $arrete));
             $n++;
         }
         return $n;
