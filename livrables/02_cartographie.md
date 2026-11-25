@@ -74,23 +74,132 @@ HETD = heures × groupes × coefficient × part
 | Arrondi | Aucun | Deux décimales par ligne |
 | Utilisation | Exports officiels et paie | Interface web |
 
-## 6. Observations techniques
+## 6. Structure de la base de données SQLite
+
+J'ai analysé la structure de la base avec la commande `sqlite3 var/serval.sqlite ".schema"`.
+
+### Tables principales
+
+| Table | Responsabilité |
+|---|---|
+| teachers | Informations des enseignants |
+| services | Heures d'enseignement |
+| import_log | Journal des imports |
+| annees | Gestion des années universitaires |
+| snapshots | Conservation des états officiels figés |
+| adjustments | Ajustements manuels des heures |
+| cache_totaux | Stockage des totaux calculés |
+| decharges | Décharges de service |
+
+### Vue SQL
+
+La vue `v_etd_par_ue` calcule les statistiques et les HETD par unité d'enseignement. Elle possède ses propres règles de calcul.
+
+### Déclencheurs SQL (triggers)
+
+| Déclencheur | Responsabilité |
+|---|---|
+| trg_services_ai_cache | Invalide le cache lors de l'ajout d'un service |
+| trg_snapshots_bu | Interdit la modification des snapshots |
+| trg_snapshots_bd | Interdit la suppression des snapshots |
+
+## 7. Flux de données
+
+### 7.1. Consultation des services sur le web
+
+`Utilisateur → index.php → ReportService → Repositories / SQLite → ServiceCalculator → Template → Affichage`
+
+L'utilisateur sélectionne une année. L'application récupère les services des enseignants, utilise le cache ou calcule leurs HETD, puis affiche les résultats.
+
+### 7.2. Export de l'état officiel
+
+`bin/export_officiel.php → OfficialReportService → Repositories / SQLite → Calcul ou snapshots → CSV`
+
+Pour une année ouverte, l'application utilise l'ancien moteur de calcul et prend en compte les ajustements et les décharges.
+
+Pour une année clôturée, elle récupère les états officiels conservés dans les snapshots.
+
+### 7.3. Import d'un classeur Excel
+
+`Classeur Excel → bin/import_excel.php → ExcelServiceImporter → ServiceRepository → SQLite`
+
+L'importateur utilise la bibliothèque PhpSpreadsheet pour lire les classeurs.
+
+| Période | Nom de la feuille Excel |
+|---|---|
+| 2018 | Service |
+| 2019 | SERVICE |
+| 2023 | Interventions |
+| 2024 et suivantes | Services |
+
+L'importateur identifie le format, normalise l'année universitaire, recherche les enseignants par matricule puis par nom et enregistre les services dans la base.
+
+Une transaction permet d'annuler les insertions en cas d'exception pendant l'import.
+
+## 8. Tâches planifiées
+
+J'ai consulté le fichier `docs/exploitation/crontab.txt` pour identifier les traitements automatiques du serveur.
+
+| Traitement | Fréquence | Responsabilité |
+|---|---|---|
+| recalculer_cache.php | Chaque jour à 00h15 | Recalculer le cache des totaux |
+| export_paie.php | Le premier du mois à 00h05 | Générer le fichier destiné à la DRH |
+| Sauvegarde SQLite | Chaque dimanche à 02h30 | Sauvegarder la base de données |
+
+Ces traitements sont exécutés automatiquement par cron.
+
+## 9. Fichiers échangés et partenaires
+
+| Fichier | Utilisateur ou partenaire |
+|---|---|
+| Classeurs Excel | Secrétariat |
+| Fichiers CSV importés | Autres composantes |
+| États officiels CSV | Direction du département |
+| Exports paie CSV | Service chargé de la paie |
+
+
+## 10. Observations techniques
 
 | Observation | Risque |
 |---|---|
-| Deux moteurs de calcul différents | Résultats incohérents |
+| Deux moteurs de calcul PHP différents | Résultats incohérents |
+| Troisième chemin de calcul dans la vue SQL | Écarts supplémentaires entre les résultats |
 | Concaténation de paramètres dans certaines requêtes SQL | Injection SQL |
 | Coefficients définis à plusieurs endroits | Difficulté de maintenance |
 | Présence de code déprécié | Incompatibilité avec les futures versions PHP |
 | Utilisation du cache | Résultats potentiellement obsolètes |
+| Déclencheur d'invalidation limité aux insertions | Risque de cache obsolète après une modification ou une suppression |
+| Plusieurs formats Excel historiques | Complexité de maintenance des imports |
 | Fuseau horaire configuré mais application non confirmée | Incohérences liées aux dates |
 
-## 7. Conclusion
+Ces observations constituent des pistes d'investigation qui devront être vérifiées avant toute correction.
 
-SERVAL possède une séparation partielle entre l'interface, les traitements métier et l'accès aux données.
 
-L'analyse a identifié plusieurs points nécessitant une investigation, notamment la coexistence de deux moteurs de calcul.
+## 11. Comparaison avec la documentation existante
 
-Les anomalies seront étudiées et vérifiées lors du traitement des tickets.
+J'ai comparé le fonctionnement réel de l'application avec les fichiers `docs/ARCHITECTURE.md` et `docs/partenaires/format_export_paie.md`.
+
+| Documentation | Réalité observée |
+|---|---|
+| Tous les calculs passent par ServiceCalculator | Deux moteurs PHP sont toujours utilisés |
+| LegacyServiceCalculator doit être supprimé | Il est toujours utilisé par OfficialReportService |
+| Le cache est invalidé par l'importateur | Un déclencheur SQL assure également l'invalidation lors des insertions |
+| La recherche par nom doit être remplacée | Elle est toujours présente dans ExcelServiceImporter |
+| La DRH attend un CSV séparé par des points-virgules | L'export paie actuel utilise des virgules |
+
+La documentation d'architecture date de la refonte de 2021 et ne correspond plus entièrement au fonctionnement actuel de SERVAL.
+
+J'ai donc constaté que la documentation doit être vérifiée à partir du code source et des résultats réels de l'application.
+
+
+## 12. Conclusion
+
+J'ai analysé l'architecture de SERVAL, ses principaux composants, sa base de données et ses différents flux de traitement.
+
+Cette cartographie m'a permis de comprendre le fonctionnement de l'interface web, des imports, des exports et des tâches automatiques.
+
+J'ai également identifié plusieurs risques techniques, notamment la duplication des règles de calcul des HETD dans deux moteurs PHP et une vue SQL.
+
+Ces risques seront étudiés et vérifiés dans les prochaines étapes du projet.
 
 Aucune modification du code source n'a été effectuée pendant cette étape.
