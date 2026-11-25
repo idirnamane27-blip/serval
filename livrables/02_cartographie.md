@@ -14,6 +14,26 @@
 | tests/ | Tests automatisés |
 | vendor/ | Dépendances externes |
 
+### Points d'entrée
+
+Un point d'entrée est le fichier par lequel on lance une fonction de l'application.
+
+| Fichier | Comment il est lancé | Rôle |
+|---|---|---|
+| `public/index.php` | Navigateur web | Afficher les années, les services, les fiches enseignants, les statistiques et le journal des imports ; permettre l'ajout d'un service |
+| `bin/import_excel.php` | Terminal | Importer un classeur Excel |
+| `bin/import_csv.php` | Terminal | Importer des services depuis un CSV |
+| `bin/import_ajustements.php` | Terminal | Importer les corrections validées par la direction |
+| `bin/export_officiel.php` | Terminal | Produire l'état officiel ou le détail des services |
+| `bin/export_paie.php` | Terminal ou cron selon la documentation | Produire le fichier de paie des vacataires |
+| `bin/cloturer_annee.php` | Terminal | Figer les états officiels et clôturer l'année |
+| `bin/recalculer_cache.php` | Terminal ou cron selon la documentation | Compléter le cache des totaux ; l'option `--tout` le vide d'abord |
+| `bin/init_db.php` | Terminal | Créer une base de données |
+
+Cron est l'outil qui lance des commandes automatiquement à des horaires définis. Les tâches prévues sont présentées dans la section 8.
+
+Le schéma suivant présente les calculs des services à l'écran et dans les exports. Les imports ont leur propre chemin, présenté dans la section 7.
+
 ## 2. Architecture générale
 
 ```text
@@ -74,6 +94,8 @@ HETD = heures × groupes × coefficient × part
 | Arrondi | Aucun | Deux décimales par ligne |
 | Utilisation | Exports officiels et paie | Interface web |
 
+**Précision :** l'ancien moteur n'arrondit pas chaque ligne, mais les totaux officiels et de paie sont ensuite arrondis à deux décimales.
+
 ## 6. Structure de la base de données SQLite
 
 J'ai analysé la structure de la base avec la commande `sqlite3 var/serval.sqlite ".schema"`.
@@ -102,6 +124,17 @@ La vue `v_etd_par_ue` calcule les statistiques et les HETD par unité d'enseigne
 | trg_services_ai_cache | Invalide le cache lors de l'ajout d'un service |
 | trg_snapshots_bu | Interdit la modification des snapshots |
 | trg_snapshots_bd | Interdit la suppression des snapshots |
+
+### Index de la base
+
+Un index aide la base à retrouver les données plus rapidement, comme l'index d'un livre.
+
+| Index | Utilité |
+|---|---|
+| `idx_services_annee_enseignant` | Retrouver les services d'un enseignant pour une année donnée |
+| Index automatiques des tables `teachers`, `annees` et `cache_totaux` | Associés aux identifiants uniques des enseignants, des années et des entrées du cache |
+
+Ces index ont été vérifiés dans la structure de la copie de la base SQLite.
 
 ## 7. Flux de données
 
@@ -148,6 +181,8 @@ J'ai consulté le fichier `docs/exploitation/crontab.txt` pour identifier les tr
 
 Ces traitements sont exécutés automatiquement par cron.
 
+**Précision :** ces tâches sont décrites dans le relevé du serveur de 2024. Leur activation sur ma machine n'a pas été vérifiée.
+
 ## 9. Fichiers échangés et partenaires
 
 | Fichier | Utilisateur ou partenaire |
@@ -157,6 +192,17 @@ Ces traitements sont exécutés automatiquement par cron.
 | États officiels CSV | Direction du département |
 | Exports paie CSV | Service chargé de la paie |
 
+### Sens et formats des échanges
+
+| Échange | Sens | Format |
+|---|---|---|
+| Services d'enseignement | Secrétariat → SERVAL | Excel `.xlsx` |
+| Services des autres composantes | Autres composantes → SERVAL | CSV séparé par des points-virgules |
+| Ajustements validés | Direction → SERVAL | CSV séparé par des points-virgules |
+| État officiel | SERVAL → direction | CSV séparé par des points-virgules |
+| Export paie actuel | SERVAL → service de paie | CSV séparé par des virgules |
+
+La convention de la DRH demande des points-virgules pour l'export paie : le format actuel présente donc un écart avec cette documentation.
 
 ## 10. Observations techniques
 
@@ -191,6 +237,18 @@ La documentation d'architecture date de la refonte de 2021 et ne correspond plus
 
 J'ai donc constaté que la documentation doit être vérifiée à partir du code source et des résultats réels de l'application.
 
+### Où vérifier ces constats ?
+
+| Constat | Fichier ou méthode à consulter |
+|---|---|
+| Le web utilise le nouveau moteur | `src/Report/ReportService.php`, méthode `totalsForYear()` |
+| Les calculs officiels utilisent encore l'ancien moteur | `src/Report/OfficialReportService.php`, méthode `ligneEnseignant()` |
+| Un ajout de service invalide le cache | Déclencheur `trg_services_ai_cache` dans la base SQLite |
+| L'import Excel recherche encore un enseignant par son nom | `src/Import/ExcelServiceImporter.php`, méthode `enregistrer()` |
+| L'export paie utilise des virgules | `src/Report/OfficialReportService.php`, méthode `exportPaie()` |
+| La DRH demande des points-virgules | `docs/partenaires/format_export_paie.md` |
+
+Ces références permettent de retrouver les preuves pendant la présentation.
 
 ## 12. Conclusion
 
